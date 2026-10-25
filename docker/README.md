@@ -2,32 +2,35 @@
 
 Deploys the Coupa Integration Baseline (CIB) into a Rossum organisation from one container. A run needs only Docker, your credentials and internet access to your Rossum and Coupa hosts. No account anywhere else, no website, no CI. The credentials never go into the image or a Docker volume: they stay in a source on your machine and reach the container as environment variables for one run.
 
-## Once
+## Quick start (Docker only)
 
-macOS (Docker engine in a small VM; `brew install docker` alone gives only the client):
-
-```bash
-brew install colima docker && colima start
-```
-
-Windows / Linux: install Docker Desktop or Docker Engine.
-
-Get the image, one of:
+1. Install Docker. macOS: `brew install colima docker && colima start` (`brew install docker` alone gives only the client). Windows / Linux: Docker Desktop or Docker Engine.
+2. Write the credentials into a file, for example `~/.cib/acme-test.env` (keys below), and make it readable only by you (`chmod 600`).
+3. Run:
 
 ```bash
-docker pull rossumvd/cib-deploy:1.3.4      # from Docker Hub (a docker run also pulls it by itself)
-docker load -i cib-deploy.tar              # from a file you received
+docker run --rm --env-file ~/.cib/acme-test.env rossumvd/cib-deploy:1.3.4 --preflight-only   # checks only
+docker run --rm -it --env-file ~/.cib/acme-test.env rossumvd/cib-deploy:1.3.4                  # preflight, then type the organisation ID to deploy
+docker run --rm --env-file ~/.cib/acme-test.env rossumvd/cib-deploy:1.3.4 --yes                # unattended: deploys only if the preflight has no warnings
+docker run --rm --env-file ~/.cib/acme-test.env rossumvd/cib-deploy:1.3.4 --yes --accept-warnings
+docker run --rm --env-file ~/.cib/acme-test.env rossumvd/cib-deploy:1.3.4 --teardown --dry-run  # what a teardown would remove
+docker run --rm -it --env-file ~/.cib/acme-test.env rossumvd/cib-deploy:1.3.4 --teardown        # remove the last deploy (type the organisation ID)
 ```
 
-The examples below say `cib-deploy`; with the Docker Hub image use `rossumvd/cib-deploy:1.3.4`, or set `CIB_IMAGE` for the `cib` script.
+The first `docker run` downloads the image from Docker Hub (https://hub.docker.com/r/rossumvd/cib-deploy/tags). Tags: `<version>` of this tool, `<version>-<commit>`, `latest`.
 
-Optional: the host script `cib` (named credential sets, Keychain, Bitwarden) comes out of the image (macOS with Homebrew; on Linux use any directory on your PATH):
+Without access to Docker Hub, use the file you received: `docker load -i cib-deploy.tar`, then write `cib-deploy` in place of `rossumvd/cib-deploy:1.3.4`.
+
+## Optional: the host script `cib`
+
+Named credential sets in a file, the macOS Keychain or Bitwarden, and logs in `~/.cib/logs/`. The script comes out of the image (macOS with Homebrew; on Linux use any directory on your PATH). Set `CIB_IMAGE` to the image it runs:
 
 ```bash
-docker run --rm cib-deploy --print-wrapper > "$(brew --prefix)/bin/cib" && chmod +x "$(brew --prefix)/bin/cib"
+docker run --rm rossumvd/cib-deploy:1.3.4 --print-wrapper > "$(brew --prefix)/bin/cib" && chmod +x "$(brew --prefix)/bin/cib"
+export CIB_IMAGE=rossumvd/cib-deploy:1.3.4
 ```
 
-## Credential sets
+### Credential sets
 
 Every set has its own name (no default), e.g. `acme-test`. One set = one target organisation + its Coupa connection.
 
@@ -65,15 +68,9 @@ CIB_COUPA_CLIENT_ID=...
 CIB_COUPA_CLIENT_SECRET=...
 ```
 
-Without the script (e.g. Windows), a file set works with Docker alone:
-
-```bash
-docker run --rm -it --env-file ~/.cib/acme-test.env cib-deploy
-```
-
 ## Where things are
 
-- Logs: `~/.cib/logs/<UTC time>-<NAME>.log`, secrets already masked by the container.
+- Logs: on the screen (secrets masked by the container); with the `cib` script also in `~/.cib/logs/<UTC time>-<NAME>.log`.
 - Credentials go only to the Rossum API you entered and to the Coupa host (OAuth check). The Rossum token is logged out at the end of every run.
 - The Rossum user must be an admin of the target organisation (the login's home organisation). It becomes the owner of the CIB hook tokens.
 - The values are environment variables of the running container, so `docker inspect` shows them while it runs (to anyone who can use your Docker).
@@ -90,7 +87,7 @@ docker run --rm -it --env-file ~/.cib/acme-test.env cib-deploy
 
 The tool asks two y/N questions (newer tool, newer CIB). The container answers them with "no", so the image's pinned versions are what gets deployed. `--yes` stops on any preflight warning unless `--accept-warnings` is given.
 
-Teardown (`cib teardown`) runs `docker/teardown.py --from-org`: it removes only the objects in the last deploy's manifest (refusing if any was renamed), drops the CIB import collections, then keeps watching for about 3 minutes and drops them again if a late import job recreates them. It reads the CIB release names from the image, so it needs no GitHub either.
+Teardown (`--teardown`, or `cib teardown`) runs `docker/teardown.py --from-org`: it removes only the objects in the last deploy's manifest (refusing if any was renamed), drops the CIB import collections, then keeps watching for about 3 minutes and drops them again if a late import job recreates them. It reads the CIB release names from the image, so it needs no GitHub either.
 
 ## Build
 
