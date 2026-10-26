@@ -46,3 +46,12 @@ jobs:
             ${{ vars.DOCKERHUB_USERNAME || github.repository_owner }}/cib-deploy:${{ steps.v.outputs.tag }}
             ${{ vars.DOCKERHUB_USERNAME || github.repository_owner }}/cib-deploy:${{ steps.v.outputs.tag }}-${{ steps.v.outputs.sha }}
             ${{ vars.DOCKERHUB_USERNAME || github.repository_owner }}/cib-deploy:latest
+
+      - name: Docker Hub description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME || github.repository_owner }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ vars.DOCKERHUB_USERNAME || github.repository_owner }}/cib-deploy
+          short-description: Deploy the Coupa Integration Baseline (CIB) into a Rossum organization. Needs only Docker.
+          readme-filepath: docker/DOCKERHUB.md
